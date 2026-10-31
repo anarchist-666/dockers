@@ -1,5 +1,14 @@
+# syntax=docker/dockerfile:1
+#
+# Asterisk 22 (LTS) для Pterodactyl 1.x / Wings.
+# Контекст сборки: games/asterisk
+#
+#   docker build -t pterodactyl-asterisk:22 games/asterisk
+#   docker build --build-arg ASTERISK_VERSION=22.5.2 -t pterodactyl-asterisk:22.5.2 games/asterisk
+#
 ARG DEBIAN_VERSION=bookworm-slim
 
+# ───────────────────────────── builder ─────────────────────────────
 FROM debian:${DEBIAN_VERSION} AS builder
 
 ARG ASTERISK_VERSION=22-current
@@ -15,6 +24,10 @@ RUN apt-get update \
 
 WORKDIR /usr/src/asterisk
 
+# BUILD_NATIVE выключаем обязательно: иначе бинарник собирается под CPU раннера
+# и падает с "illegal instruction" на других хостах.
+# В конце удаляем /out/var/run и /out/var/lock: в Debian это симлинки, и настоящие
+# каталоги из /out ломают COPY (runtime-каталоги Asterisk у нас в /home/container).
 RUN set -eux; \
     curl -fsSL "${ASTERISK_MIRROR}/asterisk-${ASTERISK_VERSION}.tar.gz" \
       | tar -xz --strip-components=1; \
@@ -22,7 +35,6 @@ RUN set -eux; \
       --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=/usr/lib \
       --with-pjproject-bundled --with-jansson-bundled; \
     make menuselect.makeopts; \
-
     menuselect/menuselect \
       --disable BUILD_NATIVE \
       --enable CORE-SOUNDS-EN-ULAW --enable CORE-SOUNDS-EN-ALAW --enable CORE-SOUNDS-EN-GSM \
@@ -32,8 +44,10 @@ RUN set -eux; \
     make DESTDIR=/out install; \
     make DESTDIR=/out samples; \
     mkdir -p /out/opt/asterisk; \
-    mv /out/etc/asterisk /out/opt/asterisk/samples
+    mv /out/etc/asterisk /out/opt/asterisk/samples; \
+    rm -rf /out/var/run /out/var/lock /out/run /out/tmp
 
+# ───────────────────────────── runtime ─────────────────────────────
 FROM debian:${DEBIAN_VERSION}
 
 LABEL org.opencontainers.image.title="pterodactyl-asterisk" \
@@ -52,11 +66,15 @@ RUN apt-get update \
 COPY --from=builder /out/ /
 RUN ldconfig
 
+# Проверки на этапе сборки: все библиотеки на месте и бинарник запускается.
 RUN set -eux; \
     missing="$(ldd /usr/sbin/asterisk /usr/lib/asterisk/modules/*.so 2>&1 | grep 'not found' || true)"; \
     if [ -n "${missing}" ]; then echo "Не хватает библиотек:"; echo "${missing}"; exit 1; fi; \
     asterisk -V
 
+# Пользователь нужен для HOME и совместимости с yolks-образами.
+# Wings всё равно запускает контейнер с UID/GID из своей конфигурации,
+# а установщик (installer) работает от root, поэтому USER здесь не задаём.
 RUN useradd -m -d /home/container -u 988 -s /bin/bash container
 
 COPY entrypoint.sh /entrypoint.sh
