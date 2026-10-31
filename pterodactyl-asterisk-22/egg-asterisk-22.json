@@ -1,0 +1,142 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2026-10-31T12:00:00+00:00",
+    "name": "Asterisk 22",
+    "author": "admin@example.com",
+    "description": "Asterisk 22 LTS (PJSIP) — телефонная станция. Конфигурация PJSIP/RTP генерируется из переменных панели.",
+    "features": null,
+    "docker_images": {
+        "Asterisk 22": "ghcr.io/OWNER/pterodactyl-asterisk:22"
+    },
+    "file_denylist": [],
+    "startup": "asterisk -c -C /home/container/etc/asterisk/asterisk.conf",
+    "config": {
+        "files": "{}",
+        "startup": "{\"done\": \"Asterisk Ready\"}",
+        "logs": "{}",
+        "stop": "core stop now"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/bash\n# Asterisk 22 — установка через панель Pterodactyl.\n# Выполняется в контейнере с тем же образом (Asterisk уже внутри), том сервера: /mnt/server\nset -e\n\necho \"[install] Asterisk 22 / PJSIP — подготовка тома сервера\"\nmkdir -p /mnt/server\ncd /mnt/server\n\n# Создаёт каталоги, управляемые конфиги (asterisk.conf, rtp.conf, pjsip_transport.conf)\n# и пользовательские (pjsip.conf, pjsip_endpoints.conf, extensions.conf, ...).\n# Существующие пользовательские файлы НЕ перезаписываются (безопасно при Reinstall).\nnode /opt/asterisk/scripts/render-config.js --init --root /mnt/server\n\n# Права: берём владельца у самого каталога сервера (его выставляет Wings)\nOWNER=\"$(stat -c '%u:%g' /mnt/server)\"\nchown -R \"${OWNER}\" /mnt/server 2>/dev/null || true\n\necho \"[install] Готово. Откройте консоль сервера и нажмите Start.\"\n",
+            "container": "ghcr.io/OWNER/pterodactyl-asterisk:22",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Внешний IP (NAT)",
+            "description": "Публичный IPv4 для SDP/SIP за NAT. Пусто — берётся SERVER_IP, если он публичный.",
+            "env_variable": "EXTERNAL_IP",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|ipv4",
+            "field_type": "text"
+        },
+        {
+            "name": "Локальные сети",
+            "description": "Список CIDR через запятую, для которых адрес НЕ подменяется на внешний. Пусто — не использовать.",
+            "env_variable": "LOCAL_NET",
+            "default_value": "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:255",
+            "field_type": "text"
+        },
+        {
+            "name": "RTP: начало диапазона",
+            "description": "Первый UDP-порт RTP (чётный). КАЖДЫЙ порт диапазона должен быть выдан серверу как allocation.",
+            "env_variable": "RTP_START",
+            "default_value": "10000",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1024,65534",
+            "field_type": "text"
+        },
+        {
+            "name": "RTP: конец диапазона",
+            "description": "Последний UDP-порт RTP. 50 портов ≈ 25 одновременных потоков (2 порта на поток).",
+            "env_variable": "RTP_END",
+            "default_value": "10049",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1024,65535",
+            "field_type": "text"
+        },
+        {
+            "name": "SIP TLS порт",
+            "description": "Порт SIP-TLS (TCP). 0 — выключено. Порт должен быть выдан серверу как allocation.",
+            "env_variable": "SIP_TLS_PORT",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:0,65535",
+            "field_type": "text"
+        },
+        {
+            "name": "STUN сервер",
+            "description": "host[:port] для rtp.conf (stunaddr). Пусто — не использовать.",
+            "env_variable": "STUN_SERVER",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:255",
+            "field_type": "text"
+        },
+        {
+            "name": "ICE support",
+            "description": "1 — включить ICE в rtp.conf (нужно, в основном, для WebRTC).",
+            "env_variable": "ICE_SUPPORT",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Verbose",
+            "description": "Уровень подробности консоли Asterisk (0-10).",
+            "env_variable": "ASTERISK_VERBOSE",
+            "default_value": "3",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:0,10",
+            "field_type": "text"
+        },
+        {
+            "name": "Debug",
+            "description": "Уровень отладки Asterisk (0-10). Выше 0 — очень шумно.",
+            "env_variable": "ASTERISK_DEBUG",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:0,10",
+            "field_type": "text"
+        },
+        {
+            "name": "Управлять конфигами",
+            "description": "1 — при каждом старте перегенерировать asterisk.conf, rtp.conf, pjsip_transport.conf. 0 — оставить ваши правки (файлы создаются только если отсутствуют).",
+            "env_variable": "MANAGE_CONFIG",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Демо-абоненты",
+            "description": "Сколько абонентов (1001, 1002, …) создать при ПЕРВОМ запуске со случайными паролями (0-10).",
+            "env_variable": "DEMO_ENDPOINTS",
+            "default_value": "2",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:0,10",
+            "field_type": "text"
+        }
+    ]
+}
