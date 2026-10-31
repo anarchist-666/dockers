@@ -6,7 +6,7 @@
     },
     "exported_at": "2026-10-31T12:00:00+00:00",
     "name": "Asterisk 22",
-    "author": "admin@example.com",
+    "author": "anarchist@example.com",
     "description": "Asterisk 22 LTS (PJSIP) — телефонная станция. Конфигурация PJSIP/RTP генерируется из переменных панели.",
     "features": null,
     "docker_images": {
