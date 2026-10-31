@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 'use strict';
-
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -17,6 +16,10 @@ const ROOT = path.resolve(rootIdx >= 0 && argv[rootIdx + 1] ? argv[rootIdx + 1] 
 const TEMPLATES = process.env.ASTERISK_TEMPLATES_DIR || '/opt/asterisk/templates';
 const DEFAULTS = process.env.ASTERISK_DEFAULTS_DIR || '/opt/asterisk/defaults';
 const SAMPLES = process.env.ASTERISK_SAMPLES_DIR || '/opt/asterisk/samples';
+
+const SKIP_SAMPLES = new Set([
+  'users.conf', 'extensions.ael', 'extensions.lua', 'dundi.conf', 'asterisk.conf',
+]);
 
 const env = process.env;
 const log = (m) => console.log(`[asterisk-egg] ${m}`);
@@ -80,10 +83,13 @@ function buildSettings() {
     s.rtpStart += 1;
     warn(`RTP_START должен быть чётным, использую ${s.rtpStart}.`);
   }
-  if (s.rtpEnd < s.rtpStart + 9) {
+  if (s.rtpEnd <= s.rtpStart + 1) {
     const fixed = Math.min(s.rtpStart + 49, 65535);
-    warn(`Диапазон RTP слишком мал (${s.rtpStart}-${s.rtpEnd}), использую ${s.rtpStart}-${fixed}.`);
+    warn(`Диапазон RTP некорректен (${s.rtpStart}-${s.rtpEnd}), использую ${s.rtpStart}-${fixed}.`);
     s.rtpEnd = fixed;
+  } else if (s.rtpEnd < s.rtpStart + 9) {
+    warn(`Диапазон RTP очень мал (${s.rtpEnd - s.rtpStart + 1} портов): ` +
+      `одновременных потоков будет не больше ${Math.floor((s.rtpEnd - s.rtpStart + 1) / 2)}.`);
   }
   if (s.sipPort >= s.rtpStart && s.sipPort <= s.rtpEnd) {
     warn(`SIP-порт ${s.sipPort} попадает в диапазон RTP ${s.rtpStart}-${s.rtpEnd}.`);
@@ -299,6 +305,7 @@ function main() {
     for (const name of fs.readdirSync(SAMPLES)) {
       const src = path.join(SAMPLES, name);
       const dst = path.join(etc, name);
+      if (SKIP_SAMPLES.has(name)) continue;
       if (fs.statSync(src).isFile() && !fs.existsSync(dst)) {
         fs.copyFileSync(src, dst);
         copied += 1;

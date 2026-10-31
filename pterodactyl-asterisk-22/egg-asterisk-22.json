@@ -10,7 +10,7 @@
     "description": "Asterisk 22 LTS (PJSIP) — телефонная станция. Конфигурация PJSIP/RTP генерируется из переменных панели.",
     "features": null,
     "docker_images": {
-        "Asterisk 22": "ghcr.io/OWNER/pterodactyl-asterisk:22"
+        "Asterisk 22": "ghcr.io/anarchist-666/dockers:pterodactyl-asterisk-22"
     },
     "file_denylist": [],
     "startup": "asterisk -c -C /home/container/etc/asterisk/asterisk.conf",
@@ -23,7 +23,7 @@
     "scripts": {
         "installation": {
             "script": "#!/bin/bash\n# Asterisk 22 — установка через панель Pterodactyl.\n# Выполняется в контейнере с тем же образом (Asterisk уже внутри), том сервера: /mnt/server\nset -e\n\necho \"[install] Asterisk 22 / PJSIP — подготовка тома сервера\"\nmkdir -p /mnt/server\ncd /mnt/server\n\n# Создаёт каталоги, управляемые конфиги (asterisk.conf, rtp.conf, pjsip_transport.conf)\n# и пользовательские (pjsip.conf, pjsip_endpoints.conf, extensions.conf, ...).\n# Существующие пользовательские файлы НЕ перезаписываются (безопасно при Reinstall).\nnode /opt/asterisk/scripts/render-config.js --init --root /mnt/server\n\n# Права: берём владельца у самого каталога сервера (его выставляет Wings)\nOWNER=\"$(stat -c '%u:%g' /mnt/server)\"\nchown -R \"${OWNER}\" /mnt/server 2>/dev/null || true\n\necho \"[install] Готово. Откройте консоль сервера и нажмите Start.\"\n",
-            "container": "ghcr.io/OWNER/pterodactyl-asterisk:22",
+            "container": "ghcr.io/anarchist-666/dockers:pterodactyl-asterisk-22",
             "entrypoint": "bash"
         }
     },
